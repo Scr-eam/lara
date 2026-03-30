@@ -14,7 +14,7 @@ If lara doesnt work on your device, and you want to help the project, please als
 ## features:
 ### implemented:
 - Font Overwrite
-- DirtyZero 2 (In Testing)
+- DirtyZero 2 (Broken)
 
 ### coming soon:
 - MobileGestalt Editor
