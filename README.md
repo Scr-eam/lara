@@ -27,6 +27,8 @@ If lara doesnt work on your device, and you want to help the project, please als
 
 ## tips:
 deleting and redownloading kernelcache is known to fix many issues. do this before asking me for support.
+closing and reoping the app can fix font change issues.
+respringing the springboard is needed to apply springboard changes such as font changes.
 
 ## credits:
 - opa334 for the kernel exploit poc, ChOma and XPF
