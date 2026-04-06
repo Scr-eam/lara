@@ -25,6 +25,7 @@ If lara doesnt work on your device, and you want to help the project, please als
 
 ## known issues:
 - on iOS 17.x, the kernel may panic when lara is closed from the app switcher.
+- downloading OTA updates does not work.
 - dirtyzero does not work.
 - ui is buggy on 17.x
 - doesnt work on ipad m2?
