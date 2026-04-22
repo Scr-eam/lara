@@ -79,6 +79,11 @@ final class laramgr: ObservableObject {
     @Published var testresult: String?
     #if !DISABLE_REMOTECALL
     @Published var rcrunning: Bool = false
+    @Published var eligibilitystate: Bool?
+    @Published var eu1progress: Double = 0.0
+    @Published var eu1running: Bool = false
+    @Published var eu2progress: Double = 0.0
+    @Published var eu2running: Bool = false
     #endif
     
     @Published var vfsready: Bool = false
@@ -535,6 +540,38 @@ final class laramgr: ObservableObject {
                     self.rcrunning = false
                 }
                 completion?(success)
+            }
+        }
+    }
+    
+    func rcinitDaemon(serviceName: String, framework: String? = nil, process: String, migbypass: Bool = false, completion: ((RemoteCall?) -> Void)? = nil) {
+        guard dsready, let sbProc else {
+            completion?(nil)
+            return
+        }
+        
+        rcrunning = true
+        logmsg("initializing remote call on \(process)...")
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            if process.withCString({ proc_find_by_name($0) == 0 }) {
+                wake_up_daemon(sbProc, serviceName, framework)
+                sleep(1) // give the daemon some time to start up
+            }
+            
+            let proc = RemoteCall(process: process, useMigFilterBypass: migbypass)
+            completion?(proc)
+            
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                let success = proc != nil
+                if success {
+                    self.logmsg("remote call initialized on \(process)")
+                    self.rcrunning = false
+                } else {
+                    self.logmsg("remote call init failed on \(process)")
+                    self.rcrunning = false
+                }
             }
         }
     }

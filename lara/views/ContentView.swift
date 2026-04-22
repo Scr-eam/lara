@@ -430,12 +430,115 @@ struct ContentView: View {
                     } header: {
                         Text("RemoteCall")
                     } footer: {
+                        if let error = mgr.sbProc?.lastError {
+                            Text("RemoteCall error: \(error)")
+                                .foregroundColor(.red)
+                        }
                         if isdebugged() {
                             Text("Not available when a debugger is attached.")
                         }
                         Text("RemoteCall is still in development and may not work properly 100% of the time.")
                     }
                     .disabled(mgr.rcrunning)
+
+                    if #available(iOS 17.4, *) {
+                        Section {
+                            Button {
+                                mgr.rcinitDaemon(serviceName: "com.apple.xpc.amsaccountsd", process: "amsaccountsd", migbypass: false) { proc in
+                                    guard let proc else {
+                                        mgr.logmsg("rc init failed")
+                                        return
+                                    }
+                                    mgr.logmsg("rc init succeeded!")
+                                    mgr.eligibilitystate = euenabler_overwrite_eligibility(proc) == 0
+                                    mgr.logmsg("overwrite_eligibility() returned: \(mgr.eligibilitystate! ? "success" : "failure")")
+                                    proc.destroy()
+                                }
+                            } label: {
+                                HStack {
+                                    Text("Overwrite eligibility (one time setup)")
+                                    if let state = mgr.eligibilitystate {
+                                        Spacer()
+                                        if state {
+                                            Image(systemName: "checkmark.circle")
+                                                .foregroundColor(.green)
+                                        } else {
+                                            Image(systemName: "xmark.circle")
+                                                .foregroundColor(.red)
+                                        }
+                                    }
+                                }
+                            }
+                            .disabled(mgr.eligibilitystate ?? false)
+                            Button {
+                                mgr.eu1progress = 0.0
+                                mgr.eu2progress = 0.0
+                                mgr.eu1running = true
+                                mgr.eu2running = true
+                                // fix App is unavailable
+                                mgr.rcinitDaemon(serviceName: "com.apple.managedappdistributiond.xpc", process: "managedappdistributiond", migbypass: false) { proc in
+                                    guard let proc else {
+                                        mgr.logmsg("rc init failed")
+                                        mgr.eu1running = false
+                                        return
+                                    }
+                                    mgr.logmsg("rc init succeeded!")
+                                    euenabler_override_country_code(proc) { progress in
+                                        DispatchQueue.main.async {
+                                            self.mgr.eu1progress = progress
+                                        }
+                                    }
+                                    proc.destroy()
+                                    DispatchQueue.main.async {
+                                        mgr.eu1running = false
+                                    }
+                                }
+                                // fix unable to load app info
+                                mgr.rcinitDaemon(serviceName: "com.apple.appstorecomponentsd.xpc", process: "appstorecomponentsd", migbypass: false) { proc in
+                                    guard let proc else {
+                                        mgr.logmsg("rc init failed")
+                                        mgr.eu2running = false
+                                        return
+                                    }
+                                    mgr.logmsg("rc init succeeded!")
+                                    euenabler_override_country_code(proc) { progress in
+                                        DispatchQueue.main.async {
+                                            self.mgr.eu2progress = progress
+                                        }
+                                    }
+                                    proc.destroy()
+                                    DispatchQueue.main.async {
+                                        mgr.eu2running = false
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    if mgr.eu1running || mgr.eu2running {
+                                        ProgressView(value: (mgr.eu1progress + mgr.eu2progress)/2)
+                                            .progressViewStyle(.circular)
+                                            .frame(width: 18, height: 18)
+                                        Text("Running...")
+                                        Spacer()
+                                        Text("\(Int((mgr.eu1progress + mgr.eu2progress)/2 * 100))%")
+                                    } else {
+                                        Text("Enable Spoof EU Region")
+                                        Spacer()
+                                        if mgr.eu1progress + mgr.eu2progress == 2 {
+                                            Image(systemName: "checkmark.circle")
+                                                .foregroundColor(.green)
+                                        } else if mgr.dsattempted && mgr.dsfailed {
+                                            Image(systemName: "xmark.circle")
+                                                .foregroundColor(.red)
+                                        }
+                                    }
+                                }
+                            }
+                            .disabled(mgr.eu1running || mgr.eu2running || mgr.eu1progress+mgr.eu2progress == 2)
+                        } footer: {
+                            Text("Enables installing of EU/Japan Marketplace apps.")
+                        }
+                        .disabled(isdebugged() || mgr.rcrunning || !mgr.rcready)
+                    }
                     #endif
 
                     Section {
