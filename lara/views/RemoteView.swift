@@ -27,6 +27,15 @@ struct RemoteView: View {
                 } label: {
                     Text("Status Bar Time Format")
                 }
+                
+                Button {
+                    run("Rounded Icons") {
+                        let circular = make_icons_circular(mgr.sbProc)
+                        return "make_icons_circular() -> \(circular)"
+                    }
+                } label: {
+                    Text("Make Icons Circular")
+                }
 
                 Button {
                     run("Hide Icon Labels") {
