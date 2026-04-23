@@ -26,12 +26,7 @@ final class laramgr: ObservableObject {
     @Published var fileopinprogress: Bool = false
     @Published var testresult: String?
     #if !DISABLE_REMOTECALL
-    @Published var rcrunning: Bool = false
-    @Published var eligibilitystate: Bool?
-    @Published var eu1progress: Double = 0.0
-    @Published var eu1running: Bool = false
-    @Published var eu2progress: Double = 0.0
-    @Published var eu2running: Bool = false
+    @Published var remotecallrunning: Bool = false
     #endif
     
     @Published var vfsready: Bool = false
@@ -44,10 +39,6 @@ final class laramgr: ObservableObject {
     @Published var sbxattempted: Bool = false
     @Published var sbxfailed: Bool = false
     @Published var sbxrunning: Bool = false
-    @Published var rcready: Bool = false
-    @Published var showRespringView: Bool = false
-    
-    var sbProc: RemoteCall?
     
     static let shared = laramgr()
     static let fontpath = "/System/Library/Fonts/Core/SFUI.ttf"
@@ -89,12 +80,12 @@ final class laramgr: ObservableObject {
                     self.dsfailed = false
                     self.kernbase = ds_get_kernel_base()
                     self.kernslide = ds_get_kernel_slide()
-                    self.logmsg("\n(ds) exploit success!")
-                    self.logmsg(String(format: "(ds) kernel_base:  0x%llx", self.kernbase))
-                    self.logmsg(String(format: "(ds) kernel_slide: 0x%llx\n", self.kernslide))
-                    globallogger.log("(ds) exploit success!")
-                    globallogger.log(String(format: "(ds) kernel_base:  0x%llx", self.kernbase))
-                    globallogger.log(String(format: "(ds) kernel_slide: 0x%llx", self.kernslide))
+                    self.logmsg("\nexploit success!")
+                    self.logmsg(String(format: "kernel_base:  0x%llx", self.kernbase))
+                    self.logmsg(String(format: "kernel_slide: 0x%llx\n", self.kernslide))
+                    globallogger.log("exploit success!")
+                    globallogger.log(String(format: "kernel_base:  0x%llx", self.kernbase))
+                    globallogger.log(String(format: "kernel_slide: 0x%llx", self.kernslide))
                     globallogger.divider()
                 } else {
                     self.dsfailed = true
@@ -466,73 +457,39 @@ final class laramgr: ObservableObject {
     
     #if !DISABLE_REMOTECALL
     func rcinit(process: String, migbypass: Bool = false, completion: ((Bool) -> Void)? = nil) {
-        guard dsready, !rcready else {
+        guard dsready, !remotecallrunning else {
             completion?(false)
             return
         }
         
-        rcrunning = true
+        remotecallrunning = true
         logmsg("initializing remote call on \(process)...")
         
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.sbProc = RemoteCall(process: process, useMigFilterBypass: migbypass)
+            let result = init_remote_call(process, migbypass)
             
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                let success = self.sbProc != nil
+                let success = result == 0
                 if success {
                     self.logmsg("remote call initialized on \(process)")
-                    self.rcrunning = false
-                    self.rcready = true
                 } else {
                     self.logmsg("remote call init failed on \(process)")
-                    self.rcrunning = false
+                    self.remotecallrunning = false
                 }
                 completion?(success)
             }
         }
     }
     
-    func rcinitDaemon(serviceName: String, framework: String? = nil, process: String, migbypass: Bool = false, completion: ((RemoteCall?) -> Void)? = nil) {
-        guard dsready, let sbProc else {
-            completion?(nil)
-            return
-        }
-        
-        rcrunning = true
-        logmsg("initializing remote call on \(process)...")
-        
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            if process.withCString({ proc_find_by_name($0) == 0 }) {
-                wake_up_daemon(sbProc, serviceName, framework)
-                sleep(1) // give the daemon some time to start up
-            }
-            
-            let proc = RemoteCall(process: process, useMigFilterBypass: migbypass)
-            completion?(proc)
-            
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                let success = proc != nil
-                if success {
-                    self.logmsg("remote call initialized on \(process)")
-                    self.rcrunning = false
-                } else {
-                    self.logmsg("remote call init failed on \(process)")
-                    self.rcrunning = false
-                }
-            }
-        }
-    }
-    
     func rcdestroy(completion: (() -> Void)? = nil) {
-        guard rcready else { return }
+        guard remotecallrunning else { return }
         
         logmsg("destroying remote call session...")
-        rcready = false
+        remotecallrunning = false
         
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.sbProc?.destroy()
+            destroy_remote_call()
             
             DispatchQueue.main.async {
                 self?.logmsg("remote call session destroyed")
@@ -543,25 +500,22 @@ final class laramgr: ObservableObject {
     
     //  params:
     //  - name: function to call
-    //  - args: up to 8 args in registers (x0-x7) and extra args passed to stack pointer
+    //  - args: up to 8 args (x0-x7)
     //  - timeout: timeout in ms
     //  ret: return value from rc
     func rccall(name: String, args: [UInt64] = [], timeout: Int32 = 100) -> UInt64 {
-        guard rcready else { return 0 }
-        let RTLD_DEFAULT = UnsafeMutableRawPointer(bitPattern: -2)
-        let ptr = dlsym(RTLD_DEFAULT, name)
-        var argsCopy = args
-        return name.withCString { (cName: UnsafePointer<CChar>) -> UInt64 in
-            UInt64(argsCopy.withUnsafeMutableBufferPointer { buffer in
-                sbProc?.doStable(
-                    withTimeout: timeout,
-                    functionName: UnsafeMutablePointer(mutating: cName),
-                    functionPointer: ptr,
-                    args: buffer.baseAddress,
-                    argCount: UInt(args.count)
-                ) ?? 0
-            })
+        guard remotecallrunning else { return 0 }
+        
+        var padded = args
+        while padded.count < 8 {
+            padded.append(0)
         }
+        
+        return do_remote_call_stable(
+            timeout, name,
+            padded[0], padded[1], padded[2], padded[3],
+            padded[4], padded[5], padded[6], padded[7]
+        )
     }
     #endif
 }
