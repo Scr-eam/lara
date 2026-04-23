@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @AppStorage("showfmintabs") private var showfmintabs: Bool = true
     @ObservedObject private var mgr = laramgr.shared
-    @State private var hasoffsets = haskernproc()
+    @State private var hasoffsets = true
     @State private var showsettings = false
     @State private var selectedmethod: method = .hybrid
 
@@ -63,22 +63,7 @@ struct ContentView: View {
                         }
                         .disabled(mgr.dsrunning)
                         .disabled(mgr.dsready)
-
-                        HStack {
-                            Text("kernproc:")
-                            Spacer()
-                            Text(String(format: "0x%llx", getrootvnode()))
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundColor(.secondary)
-                        }
-
-                        HStack {
-                            Text("rootvnode:")
-                            Spacer()
-                            Text(String(format: "0x%llx", getkernproc()))
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundColor(.secondary)
-                        }
+                        .disabled(isdebugged())
 
                         if mgr.dsready {
                             HStack {
@@ -97,11 +82,24 @@ struct ContentView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
+                        
+                        if isdebugged() {
+                            Button {
+                                exit(0)
+                            } label: {
+                                Text("Detach")
+                            }
+                            .foregroundColor(.red)
+                        }
                     } header: {
                         Text("Kernel Read Write")
                     } footer: {
                         if g_isunsupported {
                             Text("Your device/installation method may not be supported.")
+                        }
+                        
+                        if isdebugged() {
+                            Text("Not available while debugger is attached.")
                         }
                     }
 
@@ -350,6 +348,10 @@ struct ContentView: View {
                                         NavigationLink("DirtyZero") {
                                             ZeroView(mgr: mgr)
                                         }
+                                        
+                                        NavigationLink("DarkBoard") {
+                                            DarkBoardView()
+                                        }
 
                                         if 1 == 2 {
                                             NavigationLink("Control Center") {
@@ -379,7 +381,7 @@ struct ContentView: View {
 
                     #if !DISABLE_REMOTECALL
                     Section {
-                        Button("Init RemoteCall") {
+                        Button {
                             mgr.logmsg("T")
                             mgr.rcinit(process: "SpringBoard", migbypass: false) { success in
                                 if success {
@@ -390,10 +392,24 @@ struct ContentView: View {
                                     mgr.logmsg("rc init failed")
                                 }
                             }
+                        } label: {
+                            if mgr.rcrunning {
+                                Text("Initialising RemoteCall...")
+                            } else if !mgr.rcready {
+                                Text("Initialise RemoteCall")
+                            } else {
+                                HStack {
+                                    Text("Initialised RemoteCall")
+                                    Spacer()
+                                    Image(systemName: "checkmark.circle")
+                                        .foregroundColor(.green)
+                                }
+                            }
                         }
-                        .disabled(!mgr.dsready || mgr.remotecallrunning)
+                        .disabled(!mgr.dsready || mgr.rcready)
+                        .disabled(isdebugged())
 
-                        if mgr.remotecallrunning {
+                        if mgr.rcready {
                             NavigationLink("Tweaks") {
                                 RemoteView(mgr: mgr)
                             }
@@ -401,6 +417,15 @@ struct ContentView: View {
                             Button("Destroy RemoteCall") {
                                 mgr.rcdestroy()
                             }
+                        }
+                        
+                        if isdebugged() {
+                            Button {
+                                exit(0)
+                            } label: {
+                                Text("Detach")
+                            }
+                            .foregroundColor(.red)
                         }
                     } header: {
                         Text("RemoteCall")
@@ -410,7 +435,7 @@ struct ContentView: View {
                         }
                         Text("RemoteCall is still in development and may not work properly 100% of the time.")
                     }
-                    .disabled(isdebugged())
+                    .disabled(mgr.rcrunning)
                     #endif
 
                     Section {

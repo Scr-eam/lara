@@ -176,7 +176,7 @@ struct JitView: View {
 	        let runEnable: () -> Void = {
 	            DispatchQueue.global(qos: .userInitiated).async {
 	                let err: Int32 = bundleID.withCString { cStr in
-	                    enable_jit(cStr)
+                        enable_jit(mgr.sbProc, cStr)
 	                }
 	                DispatchQueue.main.async {
 	                    if err == 0 {
@@ -189,7 +189,7 @@ struct JitView: View {
 	            }
 	        }
 
-	        if mgr.remotecallrunning {
+	        if mgr.rcrunning {
 	            runEnable()
 	        } else {
 	            mgr.rcinit(process: "SpringBoard", migbypass: false) { success in

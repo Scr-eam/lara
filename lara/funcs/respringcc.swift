@@ -18,7 +18,6 @@ enum respringcc {
         dict["CCLaunchApplicationIdentifier"] = bundleIdentifier
 
         if let targetSize, targetSize > 0 {
-            // Generate a *binary* plist whose size matches the target file exactly (VFS overwrite may not support resizing).
             dict.removeValue(forKey: "0")
             for i in 0...4096 {
                 if i > 0 {

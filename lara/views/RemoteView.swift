@@ -9,84 +9,170 @@ import SwiftUI
 
 struct RemoteView: View {
     @ObservedObject var mgr: laramgr
-    @State private var isRunning: Bool = false
-    @State private var dockColumns: Int = 5
-    @AppStorage("rcDockUnlimited") private var rcDockUnlimited: Bool = false
+    @State private var running: Bool = false
+    @State private var columns: Int = 5
+    @State private var performanceHUD: Int = 0
+    @AppStorage("rcdockunlimited") private var rcdockunlimited: Bool = false
 
-    private var dockMaxColumns: Int { rcDockUnlimited ? 50 : 10 }
+    private var dockMaxColumns: Int { rcdockunlimited ? 50 : 10 }
 
     var body: some View {
         List {
             Section {
-                if !mgr.remotecallrunning {
-                    Text("RemoteCall is not initialized.")
-                        .foregroundColor(.secondary)
-                }
-
                 Button {
                     run("Status Bar Time Format") {
-                        status_bar_tweak()
+                        status_bar_tweak(mgr.sbProc)
                         return "status_bar_tweak() done"
                     }
                 } label: {
                     Text("Status Bar Time Format")
                 }
-                .disabled(!mgr.remotecallrunning || isRunning)
 
                 Button {
                     run("Hide Icon Labels") {
-                        let hidden = hide_icon_labels()
+                        let hidden = hide_icon_labels(mgr.sbProc)
                         return "hide_icon_labels() -> \(hidden)"
                     }
                 } label: {
                     Text("Hide Icon Labels")
                 }
-                .disabled(!mgr.remotecallrunning || isRunning)
+            } header: {
+                Text("SpringBoard")
+            }
 
-                Stepper(value: $dockColumns, in: 1...dockMaxColumns) {
+            Section {
+                Stepper(value: $columns, in: 1...dockMaxColumns) {
                     HStack {
                         Text("Dock columns")
                         Spacer()
-                        Text("\(dockColumns)")
+                        Text("\(columns)")
                             .foregroundColor(.secondary)
                             .monospacedDigit()
                     }
                 }
-                .disabled(!mgr.remotecallrunning || isRunning)
-                .onChange(of: rcDockUnlimited) { _ in
-                    if !rcDockUnlimited, dockColumns > 10 {
-                        dockColumns = 10
+                .onChange(of: rcdockunlimited) { _ in
+                    if !rcdockunlimited, columns > 10 {
+                        columns = 10
                     }
                 }
 
                 Button {
-                    run("Apply Dock Columns=\(dockColumns)") {
-                        let result = set_dock_icon_count(Int32(dockColumns))
-                        return "set_dock_icon_count(\(dockColumns)) -> \(result)"
+                    run("Apply Dock Columns=\(columns)") {
+                        let result = set_dock_icon_count(mgr.sbProc, Int32(columns))
+                        return "set_dock_icon_count(\(columns)) -> \(result)"
                     }
                 } label: {
                     Text("Apply Dock Columns")
                 }
-                .disabled(!mgr.remotecallrunning || isRunning)
-            } header: {
-                Text("SpringBoard")
+            }
+
+            Section {
+                Button {
+                    run("Enable Upside Down") {
+                        let result = enable_upside_down(mgr.sbProc)
+                        return "enable_upside_down() -> \(result)"
+                    }
+                } label: {
+                    Text("Enable Upside Down")
+                }
+            }
+
+            Section {
+                Button {
+                    run("Enable Floating Dock") {
+                        let result = enable_floating_dock(mgr.sbProc)
+                        return "enable_floating_dock() -> \(result)"
+                    }
+                } label: {
+                    Text("Enable Floating Dock (Broken)")
+                }
+                
+                Button {
+                    run("Enable Grid App Switcher") {
+                        let result = enable_grid_app_switcher(mgr.sbProc)
+                        return "enable_grid_app_switcher() -> \(result)"
+                    }
+                } label: {
+                    Text("Enable Grid App Switcher (Broken animation)")
+                }
+            }
+            
+            Section {
+                Picker("Performance HUD", selection: $performanceHUD) {
+                    Text("Off").tag(-1)
+                    Text("Basic").tag(0)
+                    Text("Backdrops").tag(1)
+                    Text("Particles").tag(2)
+                    Text("Full").tag(3)
+                    Text("Power").tag(5)
+                    Text("EDR").tag(7)
+                    Text("Glitches").tag(8)
+                    Text("GPU Time").tag(9)
+                    Text("Memory Bandwidth").tag(10)
+                }
+                .onChange(of: performanceHUD) { newValue in
+                    set_performance_hud(mgr.sbProc, Int32(newValue))
+                }
+                .onAppear {
+                    if mgr.rcrunning {
+                        performanceHUD = Int(get_performance_hud(mgr.sbProc))
+                    }
+                }
             } footer: {
                 Text("These call into SpringBoard via RemoteCall. Keep RemoteCall initialized while running them.")
+                
+                if !mgr.rcready {
+                    Text("RemoteCall is not initialized. How are you here?")
+                }
+            }
+            .disabled(!mgr.rcready || running)
+            
+            Section {
+                HStack(alignment: .top) {
+                    AsyncImage(url: URL(string: "https://github.com/khanhduytran0.png")) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        ProgressView()
+                    }
+                    .frame(width: 40, height: 40)
+                    .clipShape(Circle())
+                    
+                    VStack(alignment: .leading) {
+                        Text("Duy Tran")
+                            .font(.headline)
+                        
+                        Text("Responsible for most things related to remotecall.")
+                            .font(.subheadline)
+                            .foregroundColor(Color.secondary)
+                    }
+                    
+                    Spacer()
+                }
+                .onTapGesture {
+                    if let url = URL(string: "https://github.com/khanhduytran0"),
+                       UIApplication.shared.canOpenURL(url) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            } header: {
+                Text("Credits")
             }
         }
         .navigationTitle(Text("Tweaks"))
     }
 
     private func run(_ name: String, _ work: @escaping () -> String) {
-        guard mgr.remotecallrunning, !isRunning else { return }
-        isRunning = true
+        guard mgr.rcready, !running else { return }
+        running = true
         mgr.logmsg("(rc) \(name)...")
 
         DispatchQueue.global(qos: .userInitiated).async {
             let result = work()
             DispatchQueue.main.async {
                 self.mgr.logmsg("(rc) \(result)")
-                self.isRunning = false
+                self.running = false
             }
         }
     }
