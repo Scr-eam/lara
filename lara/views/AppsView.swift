@@ -26,25 +26,13 @@ struct AppsView: View {
     
     private func isbypassed(bundlepath: String) -> Bool {
         let key = "com.apple.installd.validatedByFreeProfile"
-
+        var value: UInt8 = 0
+        
         errno = 0
-        let size = getxattr(bundlepath, key, nil, 0, 0, 0)
-
-        if size < 0 {
-            let code = errno
-
-            if code == ENOATTR {
-                mgr.logmsg("(sbx) xattr not present (bypassed): \(bundlepath)")
-                return true
-            } else {
-                let err = String(cString: strerror(code))
-                mgr.logmsg("(sbx) getxattr error on \(bundlepath) | errno=\(code) | \(err)")
-                return false
-            }
-        }
-
-        mgr.logmsg("(sbx) xattr still present (NOT bypassed): \(bundlepath)")
-        return false
+        let size = getxattr(bundlepath, key, &value, 1, 0, 0)
+        
+        guard size == 1 else { return false }
+        return value != 0
     }
     
     private func sbx3apbypass() {
@@ -86,6 +74,7 @@ struct AppsView: View {
                     guard access(mp, F_OK) == 0 else { continue }
 
                     let testkey = "com.apple.installd.validatedByFreeProfile"
+                    var value: [UInt8] = [1, 2, 3]
                     
                     let success = mgr.apfsown(path: bundlepath, uid: 501, gid: 501)
                     if !success {
@@ -95,28 +84,24 @@ struct AppsView: View {
                     }
 
                     errno = 0
-                    let rc = removexattr(bundlepath, testkey, 0)
+                    let rc = setxattr(bundlepath, testkey, &value, value.count, 0, 0)
                     if rc == 0 {
-                        mgr.logmsg("(sbx) removed xattr on: \(bundlepath)")
+                        mgr.logmsg("(sbx) set xattr on: \(bundlepath)")
                         processed += 1
                     } else {
                         let code = errno
-
-                        if code == ENOATTR {
-                            mgr.logmsg("(sbx) xattr already missing: \(bundlepath)")
-                            processed += 1
-                        } else {
-                            let err = String(cString: strerror(code))
-                            mgr.logmsg("(sbx) removexattr failed \(bundlepath) | errno=\(code) | \(err)")
-                        }
+                        let err = String(cString: strerror(code))
+                        mgr.logmsg("(sbx) failed setxattr \(bundlepath) | errno=\(code) | \(err)")
                     }
 
                     errno = 0
                     let size = getxattr(bundlepath, testkey, nil, 0, 0, 0)
-                    if size < 0 && errno == ENOATTR {
-                        mgr.logmsg("(sbx) verified removal: \(bundlepath)")
+                    if size >= 0 {
+                        mgr.logmsg("(sbx) verified xattr on: \(bundlepath) size=\(size)")
                     } else {
-                        mgr.logmsg("(sbx) xattr still exists on: \(bundlepath)")
+                        let code = errno
+                        let err = String(cString: strerror(code))
+                        mgr.logmsg("(sbx) verify failed \(bundlepath) | errno=\(code) | \(err)")
                     }
                 }
             }

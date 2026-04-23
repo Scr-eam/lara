@@ -1,8 +1,6 @@
 //
-//  isdebugged.swift
+//  DebugDetect.swift
 //  lara
-//
-//  Created by ruter on 14.04.26.
 //
 
 import Darwin

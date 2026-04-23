@@ -3,7 +3,6 @@
 //  lara
 //
 //  Created by ruter on 29.03.26.
-//  Modified and fixed by claud, implemented by TheDiamondSqidy on 18.04.26
 //
 
 import SwiftUI
@@ -31,6 +30,7 @@ struct CardView: View {
     @State private var currentCardNumber = ""
     @State private var pendingNumberCard: CardItem?
     @State private var pendingRestoreCard: CardItem?
+    @State private var selectedOption: ReplaceOption? = nil
 
     private struct CardItem: Identifiable {
         let id: String
@@ -39,81 +39,6 @@ struct CardView: View {
         let bundleName: String
         let backgroundFileName: String
     }
-
-    // MARK: - Card Row Subview
-    //
-    // Each CardRowView owns its own @State selectedOption, so changing the
-    // picker on one card cannot affect any other card's state. Previously,
-    // a single shared selectedOption on CardView caused every card's
-    // onChange handler to fire simultaneously, always resolving to the
-    // wrong (first) card.
-    private struct CardRowView: View {
-        let card: CardItem
-        let onReplace: (CardItem, ReplaceOption) -> Void
-        let onRestore: (CardItem) -> Void
-        let onEditNumber: (CardItem) -> Void
-        let previewImage: (CardItem) -> UIImage?
-
-        @State private var selectedOption: ReplaceOption? = nil
-
-        var body: some View {
-            Section(header: Text(card.backgroundFileName)) {
-                HStack(spacing: 12) {
-                    if let img = previewImage(card) {
-                        Image(uiImage: img)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 140, height: 90)
-                            .cornerRadius(8)
-                    } else {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.gray.opacity(0.2))
-                            .frame(width: 140, height: 90)
-                            .overlay(
-                                Image(systemName: "creditcard.fill")
-                                    .foregroundColor(.secondary)
-                            )
-                    }
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(card.bundleName)
-                            .font(.headline)
-
-                        Text(card.imagePath)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                    }
-
-                    Spacer()
-                }
-
-                Picker("Replace", selection: $selectedOption) {
-                    Text("Select…").tag(ReplaceOption?.none)
-                    ForEach(ReplaceOption.allCases) { option in
-                        Text(option.rawValue).tag(Optional(option))
-                    }
-                }
-                .pickerStyle(MenuPickerStyle())
-                .onChange(of: selectedOption) { option in
-                    guard let option = option else { return }
-                    onReplace(card, option)
-                    selectedOption = nil
-                }
-
-                Button("Restore") {
-                    onRestore(card)
-                }
-                .foregroundColor(.red)
-
-                Button("Edit Card Number") {
-                    onEditNumber(card)
-                }
-            }
-        }
-    }
-
-    // MARK: - Body
 
     var body: some View {
         List {
@@ -144,31 +69,74 @@ struct CardView: View {
                 }
             } else {
                 ForEach(cards) { card in
-                    CardRowView(
-                        card: card,
-                        onReplace: { card, option in
-                            pendingCard = card
+                    Section {
+                        HStack(spacing: 12) {
+                            if let img = previewImage(for: card) {
+                                Image(uiImage: img)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 140, height: 90)
+                                    .cornerRadius(8)
+                            } else {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(width: 140, height: 90)
+                                    .overlay(
+                                        Image(systemName: "creditcard.fill")
+                                            .foregroundColor(.secondary)
+                                    )
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(card.bundleName)
+                                    .font(.headline)
+                                
+                                Text(card.imagePath)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                            }
+                            
+                            Spacer()
+                        }
+                        
+                        Picker("Replace", selection: $selectedOption) {
+                            Text("Select…").tag(ReplaceOption?.none)
+                            ForEach(ReplaceOption.allCases) { option in
+                                Text(option.rawValue).tag(Optional(option))
+                            }
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .onChange(of: selectedOption) { option in
+                            guard let option = option else { return }
+                            pendingCard = card 
                             switch option {
                             case .photos:
                                 showimgpicker = true
                             case .files:
                                 showDocPicker = true
                             }
-                        },
-                        onRestore: { card in
-                            pendingRestoreCard = card
-                            restoreImage(card: card)
-                        },
-                        onEditNumber: { card in
+                            
+                            selectedOption = nil
+                        }
+                            
+                            Button("Restore") {
+                                pendingRestoreCard = card
+                                restoreImage(card: card)
+                            }
+                            .foregroundColor(.red)
+                        
+                        Button("Edit Card Number") {
                             pendingNumberCard = card
                             currentCardNumber = readCardNumber(for: card) ?? ""
                             cardNumberInput = currentCardNumber
                             showCardNumberEditor = true
-                        },
-                        previewImage: previewImage
-                    )
+                        }
+                    } header: {
+                        Text(card.backgroundFileName)
+                    }
                 }
-
+                
                 Section {
                     HStack(alignment: .top) {
                         AsyncImage(url: URL(string: "https://github.com/drkm9743.png")) { image in
@@ -180,16 +148,16 @@ struct CardView: View {
                         }
                         .frame(width: 40, height: 40)
                         .clipShape(Circle())
-
+                        
                         VStack(alignment: .leading) {
                             Text("drkm9743")
                                 .font(.headline)
-
+                            
                             Text("Inspiration.")
                                 .font(.subheadline)
                                 .foregroundColor(Color.secondary)
                         }
-
+                        
                         Spacer()
                     }
                     .onTapGesture {
@@ -241,8 +209,6 @@ struct CardView: View {
             refreshCards()
         }
     }
-
-    // MARK: - Card Scanning
 
     private func refreshCards() {
         guard !working else { return }
@@ -413,8 +379,6 @@ struct CardView: View {
         return nil
     }
 
-    // MARK: - Image Replacement
-
     private func applyReplacement(card: CardItem, imageData: Data) {
         guard let image = UIImage(data: imageData) else {
             status = "Invalid image data"
@@ -475,8 +439,6 @@ struct CardView: View {
             status = "Restore failed"
         }
     }
-
-    // MARK: - Card Number
 
     private func passJsonPath(for card: CardItem) -> String {
         card.directoryPath + "/pass.json"
@@ -557,8 +519,6 @@ struct CardView: View {
             status = "Failed to restore pass.json"
         }
     }
-
-    // MARK: - Cache & I/O
 
     private func clearCache(for card: CardItem) {
         let fm = FileManager.default

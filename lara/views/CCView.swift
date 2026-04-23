@@ -15,7 +15,7 @@ struct CCView: View {
         NavigationStack {
             List {
                 Section {
-                    Button("do it now") {
+                    Button("Install RespringCC (Magnifier → lara)") {
                         patchResult = installRespringCC()
                         mgr.logmsg(patchResult)
                     }
@@ -25,7 +25,9 @@ struct CCView: View {
                         mgr.respring()
                     }
                     .disabled(!mgr.sbxready && !mgr.vfsready && !mgr.dsready)
-                           
+
+                    Link("RespringCC source", destination: URL(string: "https://github.com/straight-tamago/RespringCC/tree/main")!)
+
                     if !patchResult.isEmpty {
                         Text(patchResult)
                             .font(.system(size: 13, design: .monospaced))

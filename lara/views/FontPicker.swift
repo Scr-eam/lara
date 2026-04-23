@@ -128,8 +128,10 @@ struct FontPicker: View {
                     Text(globallogger.logs.last ?? "No logs yet")
                         .font(.system(size: 13, design: .monospaced))
                     
-                    Button("Respring") {
-                        mgr.respring()
+                    if #unavailable(iOS 18.2) {
+                        Button("Respring") {
+                            mgr.respring()
+                        }
                     }
                 }
             }

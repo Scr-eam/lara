@@ -35,7 +35,6 @@ struct lara: App {
         if UserDefaults.standard.string(forKey: "selectedmethod") == nil {
             UserDefaults.standard.set(method.sbx.rawValue, forKey: "selectedmethod")
         }
-        
         if g_isunsupported {
             showunsupported = true
         }
@@ -86,7 +85,7 @@ struct lara: App {
             }
             .onChange(of: scenePhase) { phase in
                 if phase == .inactive || phase == .background {
-                    if mgr.rcready {
+                    if mgr.remotecallrunning {
                         var bgTask: UIBackgroundTaskIdentifier = .invalid
                         bgTask = UIApplication.shared.beginBackgroundTask(withName: "RemoteCallCleanup") {
                             if bgTask != .invalid {
@@ -94,7 +93,7 @@ struct lara: App {
                                 bgTask = .invalid
                             }
                         }
-                        
+
                         mgr.rcdestroy {
                             if bgTask != .invalid {
                                 UIApplication.shared.endBackgroundTask(bgTask)
@@ -102,7 +101,7 @@ struct lara: App {
                             }
                         }
                     }
-                    
+
                     globallogger.stopcapture()
                 } else if phase == .active {
                     globallogger.capture()
