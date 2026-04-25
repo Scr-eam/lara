@@ -40,7 +40,7 @@ struct RemoteView: View {
                 Button {
                     run("Hidden Dock") {
                         let hide_dock = hide_dock_background(mgr.sbProc)
-                        return "hide_dock_background() -> \(hidedock)"
+                        return "hide_dock_background() -> \(hide_dock)"
                     }
                 } label: {
                     Text("Hide Dock Background")
