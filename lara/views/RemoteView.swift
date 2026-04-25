@@ -36,6 +36,15 @@ struct RemoteView: View {
                 } label: {
                     Text("Make Icons Circular")
                 }
+                
+                Button {
+                    run("Hidden Dock") {
+                        let hide_dock = hide_dock_background(mgr.sbProc)
+                        return "hide_dock_background() -> \(hidedock)"
+                    }
+                } label: {
+                    Text("Hide Dock Background")
+                }
 
                 Button {
                     run("Hide Icon Labels") {
