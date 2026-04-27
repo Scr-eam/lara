@@ -30,8 +30,8 @@ struct RemoteView: View {
                 
                 Button {
                     run("Rounded Icons") {
-                        make_icons_circular(mgr.sbProc)
-                        return "make_icons_circular() done"
+                        let circular = make_icons_circular(mgr.sbProc)
+                        return "make_icons_circular() -> \(circular)"
                     }
                 } label: {
                     Text("Make Icons Circular")
@@ -39,8 +39,8 @@ struct RemoteView: View {
                 
                 Button {
                     run("Hidden Dock") {
-                        hide_dock_background(mgr.sbProc)
-                        return "hide_dock_background() done"
+                        let hide_dock = hide_dock_background(mgr.sbProc)
+                        return "hide_dock_background() -> \(hide_dock)"
                     }
                 } label: {
                     Text("Hide Dock Background")
