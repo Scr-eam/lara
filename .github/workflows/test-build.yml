@@ -4,7 +4,8 @@ on:
 workflow_dispatch:
 pull_request:
 push:
-branches-ignore: [ main ]
+branches-ignore:
+- main
 
 jobs:
 build:
