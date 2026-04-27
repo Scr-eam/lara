@@ -28,14 +28,6 @@ struct RemoteView: View {
                     Text("Status Bar Time Format")
                 }
                 
-                Button {
-                    run("Rounded Icons") {
-                        // make_icons_circular(mgr.sbProc)
-                        // return "make_icons_circular() done"
-                    }
-                } label: {
-                    Text("Make Icons Circular")
-                }
                 
                 Button {
                     run("Hidden Dock") {
