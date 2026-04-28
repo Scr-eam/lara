@@ -28,7 +28,6 @@ struct RemoteView: View {
                     Text("Status Bar Time Format")
                 }
                 
-                
                 Button {
                     run("Hidden Dock") {
                         hide_dock_background(mgr.sbProc)
