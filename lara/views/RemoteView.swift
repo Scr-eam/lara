@@ -30,8 +30,8 @@ struct RemoteView: View {
                 
                 Button {
                     run("Hidden Dock") {
-                        hide_dock_background(mgr.sbProc)
-                        return "hide_dock_background() done"
+                        let count = hide_dock_background(mgr.sbProc)
+                        return appearanceResult(count, item: "dock backgrounds")
                     }
                 } label: {
                     Text("Hide Dock Background")
@@ -40,14 +40,25 @@ struct RemoteView: View {
                 Button {
                     run("Hide Icon Labels") {
                         let hidden = hide_icon_labels(mgr.sbProc)
-                        return "hide_icon_labels() -> \(hidden)"
+                        return appearanceResult(hidden, item: "icon views")
                     }
                 } label: {
                     Text("Hide Icon Labels")
                 }
+                Button {
+                    run("Make Icons Circular") {
+                        let count = make_icons_circular(mgr.sbProc)
+                        return appearanceResult(count, item: "icon images")
+                    }
+                } label: {
+                    Text("Make Icons Circular")
+                }
             } header: {
                 Text("SpringBoard")
+            } footer: {
+                Text("Appearance changes affect currently loaded views. Reapply after changing pages or layouts if needed. Restart SpringBoard to reset. If you used the old label tweak, restart SpringBoard before testing this version.")
             }
+            .disabled(!mgr.rcready || running)
 
             Section {
                 Stepper(value: $columns, in: 1...dockMaxColumns) {
@@ -170,6 +181,12 @@ struct RemoteView: View {
             }
         }
         .navigationTitle(Text("Tweaks"))
+    }
+
+    private func appearanceResult(_ count: Int32, item: String) -> String {
+        if count < 0 { return "Appearance change unavailable; check the RemoteCall log." }
+        if count == 0 { return "No matching \(item) were changed. See the log for unsupported views or methods." }
+        return "Updated \(count) \(item). Check the Home Screen; reapply if SpringBoard recreates them."
     }
 
     private func run(_ name: String, _ work: @escaping () -> String) {
